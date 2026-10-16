@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>小封包的奇幻旅程 The Journey of a Tiny Packet</title>
+<style>
+:root{--n:#172638;--f:#345B4A;--i:#263D35;--m:#A7C9AD;--p:#F0E6CC;--g:#D6AC62;--r:#A75E52;--ui:215px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--n);color:var(--p);font:15px/1.55 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;overscroll-behavior:none}
+#app{height:100dvh;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:6px;padding:max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left))}
+#hud,#dlg,#pv,#ctl{width:min(100%,720px)}
+#hud{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;font-size:13px;background:var(--i);border:2px solid var(--g);padding:3px 8px}
+#hc{color:var(--g);font-weight:700}
+#cv{width:min(100%,720px,calc((100dvh - var(--ui))*1.5));aspect-ratio:3/2;image-rendering:pixelated;border:3px solid var(--g);background:#000;display:block;touch-action:none}
+#dlg{min-height:104px;background:var(--p);color:var(--n);border:3px solid var(--g);outline:3px solid var(--i);padding:8px 12px;position:relative}
+#dn{font-weight:700;color:var(--r);min-height:1.5em}#dt{white-space:pre-wrap}
+#dc{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+#dh{position:absolute;right:10px;bottom:4px;color:var(--r)}
+button{font:inherit;background:var(--i);color:var(--p);border:2px solid var(--g);padding:5px 12px;cursor:pointer;touch-action:manipulation}
+button:hover{background:var(--f)}button:active{background:var(--g);color:var(--n)}
+button:focus-visible{outline:3px solid var(--m)}button:disabled{opacity:.55}
+#pv{background:var(--i);border:2px solid var(--g);padding:4px 8px;font-size:13px}
+#box{background:var(--n);padding:4px 10px;min-height:48px}
+#box h1{margin:2px 0;font-size:20px;color:var(--p)}#box p{margin:2px 0}
+#ctl{display:none;justify-content:space-between;align-items:center;user-select:none;-webkit-user-select:none;touch-action:none;padding:0 6px}
+#dp{display:grid;grid-template:repeat(3,52px)/repeat(3,52px);gap:3px}
+#dp button,#ba,#bm{touch-action:none;font-size:20px;padding:0}
+#ba{width:84px;height:84px;border-radius:50%;background:var(--r);font-size:17px;margin-left:10px}
+#bm{width:48px;height:40px;display:block;margin-bottom:10px;margin-left:auto}
+@media (pointer:coarse),(max-width:700px){#ctl{display:flex}:root{--ui:360px}}
+#ov{position:fixed;inset:0;background:rgba(23,38,56,.94);display:flex;align-items:center;justify-content:center;overflow:auto;padding:10px;z-index:5}
+#pn{background:var(--p);color:var(--n);border:4px solid var(--g);outline:4px solid var(--i);padding:16px 18px;width:min(100%,560px);max-height:92dvh;overflow:auto}
+#pn h2{margin:0;color:var(--r);font-size:26px}#pn h3{margin:0 0 6px}#pn p{margin:8px 0}.sub{color:var(--f);font-style:italic}
+#pn button{margin:6px 6px 0 0}#pn button:not(:active){color:var(--p)}.pl{white-space:pre-wrap}
+</style></head><body>
+<div id="app">
+<div id="hud"><span id="hc"></span><span id="gl"></span></div>
+<canvas id="cv" width="240" height="160"></canvas>
+<div id="pv" hidden><div id="box"></div><small id="tree"></small></div>
+<div id="dlg"><div id="dn"></div><div id="dt"></div><div id="dc"></div><span id="dh" hidden>▼</span></div>
+<div id="ctl"><div id="dp"><i></i><button data-d="u" aria-label="上">▲</button><i></i><button data-d="l" aria-label="左">◀</button><i></i><button data-d="r" aria-label="右">▶</button><i></i><button data-d="d" aria-label="下">▼</button><i></i></div>
+<div><button id="bm" aria-label="暫停">☰</button><button id="ba">互動</button></div></div>
+</div>
+<div id="ov"><div id="pn"></div></div>
+<script>
+'use strict';
+const C={n:'#172638',f:'#345B4A',i:'#263D35',m:'#A7C9AD',p:'#F0E6CC',g:'#D6AC62',r:'#A75E52'};
+const $=s=>document.querySelector(s),cv=$('#cv'),g=cv.getContext('2d'),ov=$('#ov'),pn=$('#pn'),SV='tiny-packet-v1';
+const RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
+const R=(a,b,w,h,c)=>{g.fillStyle=c;g.fillRect(a|0,b|0,w,h)};
+const E=(t,x,p)=>{const e=document.createElement(t);if(x!=null)e.textContent=x;if(p)Object.assign(e,p);return e};
+const B=(t,fn)=>E('button',t,{onclick:fn});
+let S,M='title',held=[],tq=[],mv=null,pk=null,tr=null,endT=0,lastHint='',hudK='',AC=null,last=0;
+/* ---------- 資料：場景 ---------- */
+const SC=[
+{n:'序章：網址水晶板',th:{fl:C.f,f2:'#3d6955',w:C.i},m:['TTTTTTTTTTTTTTT','T.............T','T..T.....T....T','T.............T','T.............T','T.............>','T.............T','T..T.......T..T','T.............T','TTTTTTTTTTTTTTT'],
+ np:[[7,2,'cry','網址水晶板'],[4,4,'gd','王國守衛',C.r,'#8a9099'],[10,4,'ms','信使',C.m,C.f]]},
+{n:'第一章：記憶圖書館與 DNS 迷宮',th:{fl:'#2b3b36',f2:'#33463f',w:'#6b4a35'},m:['BBBBBBBBBBBBBBB','B.............B','B.BB.BB.BB.BB.B','B.............B','B.BB.BB.BB.BB.B','<.............>','B.BB.BB.BB.BB.B','B.............B','B.BB.BB.BB.BB.B','BBBBBBBBBBBBBBB'],
+ np:[[2,1,'bw','瀏覽器管理員','#5b7aa0','#3d2b1f'],[6,3,'os','作業系統管理員','#7a5a8a',C.p],[10,1,'rs','遞迴解析器',C.g,C.i],[3,7,'rt','根 DNS 長老',C.p,'#ccc'],[7,7,'tl','.com 守護者',C.r,C.n],[11,7,'au','權威 DNS 管家',C.f,C.g]]},
+{n:'第二章：TCP 三向交握之橋',th:{fl:'#5b6770',f2:'#667380',w:C.i},m:['~~~~~~~~~~~~~~~','~~~~~~~~~~~~~~~','~~~~~~~~~~~~~~~','~~~~~~~~~~~~~~~','~.~.~~.~~.~~~~~','<=============>','~~~~~~~~~~~~~~~','~~~~~~~~~~~~~~~','~~~~~~~~~~~~~~~','~~~~~~~~~~~~~~~'],
+ np:[[1,4,'bg','橋梁守衛',C.r,'#8a9099'],[3,4,'ack','ACK 機關'],[6,4,'syn','SYN 機關'],[9,4,'sa','SYN-ACK 機關']]},
+{n:'第三章：HTTP 請求與狀態碼城堡',th:{fl:'#6b7480',f2:'#7b8490',w:'#3c4654'},m:['###############','#.............#','#.##.......##.#','#.............#','#.............#','<.............>','#.............#','#.##.......##.#','#.............#','###############'],
+ np:[[3,3,'gk','城門守衛',C.r,'#8a9099'],[11,3,'st','城堡管理員',C.g,C.n]]},
+{n:'第四章：HTML 與 CSS 的像素工坊',th:{fl:'#5a4636',f2:'#654f3e',w:C.i},m:['###############','#.............#','#.CC.......CC.#','#.............#','#.............#','<.............>','#.............#','#.CC.......CC.#','#.............#','###############'],
+ np:[[3,3,'ht','HTML 結構工匠','#c0763a',C.p],[7,3,'cs','CSS 樣式工匠','#4a7aa0',C.g],[11,3,'js','JavaScript 魔法師','#7a5a8a',C.m]]},
+{n:'第五章：渲染引擎與最終城堡',th:{fl:C.n,f2:'#20344a',w:'#33445a'},m:['###############','#....#####....#','#....#####....#','#.............#','#.............#','<.............#','#.............#','#.............#','#.............#','###############'],
+ np:[[2,3,'r0','1 號裝置：HTML 解析'],[5,3,'r1','2 號裝置：CSS 解析'],[8,3,'r2','3 號裝置：JavaScript'],[11,3,'r3','4 號裝置：樣式計算'],[4,7,'r4','5 號裝置：Layout'],[8,7,'r5','6 號裝置：Paint'],[12,7,'r6','7 號裝置：最終呈現']]}
+];
+const NEED=['start','ip','bridge','status','js'],can=()=>S.sc>4||!!S.f[NEED[S.sc]];
+const LK=['城門仍然緊閉。先調查水晶板，再去找信使。','需要城堡的 IP 位址才能前進。去問問圖書館裡的 DNS 管理員。','橋梁尚未啟動。請依序啟動 SYN、SYN-ACK、ACK 三座機關。','城堡守衛擋住去路。完成 HTTP 請求與狀態碼任務，取得三把鑰匙。','工坊任務尚未完成：結構、樣式與互動都需要完成。'];
+const RN=['HTML 解析，建立 DOM','CSS 解析，建立 CSSOM','執行必要的 JavaScript','樣式計算','Layout 排版','Paint 繪製','呈現最終畫面'];
+const RT=['解析器逐步讀取 HTML，建立 DOM 樹。解析途中遇到的外部資源，也可能需要另外載入。','CSS 被解析成 CSSOM，描述各條樣式規則。','腳本的執行時機會受 async、defer、位置與解析進度影響；腳本也可能再修改 DOM 或樣式，觸發新的更新。','瀏覽器結合 DOM 與 CSSOM，算出每個元素最終套用的樣式。','Layout：計算元素的位置與大小。','Paint：把文字、顏色、邊框等視覺內容繪製出來。','繪製結果合成後顯示在畫面上。實際流程依網頁而異，互動後畫面也可能再次更新。'];
+const IT=[['ip','IP 金色卡片'],['bridge','TCP 連線印記'],['status','HTML／CSS／JS 三把鑰匙'],['html','結構積木'],['css','樣式材料'],['js','互動咒文']];
+const DN=[['url','調查網址水晶板'],['start','啟動旅程'],['ip','取得 IP 位址'],['cache','（支線）理解 DNS 快取'],['bridge','完成 TCP 三向交握'],['req','提交 HTTP 請求'],['status','判斷 HTTP 狀態碼'],['html','建立 DOM'],['css','套用 CSS（CSSOM）'],['js','啟動 JavaScript'],['fin','完成渲染']];
+const itemsText=()=>IT.filter(a=>S.f[a[0]]).map(a=>a[1]).join('、')||'尚無';
+const prog=()=>['url','start','ip','bridge','req','status','html','css','js','fin'].filter(k=>S.f[k]).length*10;
+const fmt=ms=>{const s=Math.floor(ms/1000);return Math.floor(s/60)+' 分 '+s%60+' 秒'};
+function goal(){const f=S.f,r=f.r|0;return[
+ !f.url?'調查廣場中央的網址水晶板':!f.start?'向信使報告，展開旅程':'穿過東側城門',
+ !f.ip?(!f.ask?'詢問遞迴解析器（或問瀏覽器管理員快取）':!f.root?'找根 DNS 長老':!f.tld?'找 .com 守護者':'找 example.com 權威 DNS 管家'):'帶著 IP 往東前進',
+ !f.bridge?(f.ip?'依序啟動 SYN → SYN-ACK → ACK 機關':'回圖書館取得 IP'):'過橋前往城堡',
+ !f.req?'向城門守衛提交 HTTP 請求':!f.status?'幫城堡管理員判斷狀態碼':'帶著鑰匙前往工坊',
+ !f.html?'找 HTML 工匠建立結構':!f.css?'找 CSS 工匠套用樣式':!f.js?'找 JS 魔法師啟動按鈕':'前往渲染工坊',
+ r<7?'依序啟動 '+(r+1)+' 號裝置：'+RN[r]:'完成！'][S.sc]}
+/* ---------- 狀態與存檔 ---------- */
+const fresh=(snd=1)=>({sc:0,x:7,y:6,fc:'d',f:{},snd,qz:null,t:0});
+function load(){try{const j=JSON.parse(localStorage.getItem(SV));if(j&&typeof j.sc=='number'&&SC[j.sc]&&j.f&&typeof j.f=='object'){const s=Object.assign(fresh(),j),c=(SC[s.sc].m[s.y]||'')[s.x];if(!c||!'.='.includes(c)){s.x=1;s.y=5}return s}}catch(e){}return null}
+function save(){try{localStorage.setItem(SV,JSON.stringify(S))}catch(e){}}
+function snd(k){if(!S||!S.snd)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state=='suspended')AC.resume();const n={i:[600],ok:[523,784],go:[330,440],win:[523,659,784,1046]}[k]||[500],o=AC.createOscillator(),v=AC.createGain(),t=AC.currentTime,d=n.length*.09;o.type='square';n.forEach((f,i)=>o.frequency.setValueAtTime(f,t+i*.09));v.gain.setValueAtTime(.05,t);v.gain.exponentialRampToValueAtTime(.001,t+d+.05);o.connect(v);v.connect(AC.destination);o.start(t);o.stop(t+d+.06)}catch(e){}}
+/* ---------- 對話系統 ---------- */
+const NT=s=>'【知識筆記】'+s,GET=s=>'【獲得道具】'+s;
+const set=(k,v=1)=>()=>{S.f[k]=v;save();snd('ok')};
+const ask=(q,o,c,ok,bad,nx=[],keep)=>{const r=[q,{o:o.map((t,i)=>[t,i==c?[ok,...nx]:[bad,()=>tq.unshift(...r)]]).sort(()=>keep?0:Math.random()-.5)}];return r};
+function say(q){tq=q.slice();M='talk';nx()}
+function nx(){const it=tq.shift();
+ if(it===undefined){if(M=='talk')M='play';lastHint='';$('#dc').replaceChildren();$('#dh').hidden=true;return}
+ if(typeof it=='function'){it();return nx()}
+ if(typeof it=='string'){const m=it.match(/^([^：\n]{1,8})：([\s\S]*)$/);$('#dn').textContent=m?m[1]:'';$('#dt').textContent=m?m[2]:it;$('#dc').replaceChildren();$('#dh').hidden=false;if(tq[0]&&tq[0].o)return nx();return}
+ $('#dh').hidden=true;const box=$('#dc');box.replaceChildren();it.o.forEach(([l,q],i)=>box.append(B((i+1)+'. '+l,()=>{tq=q.concat(tq);nx()})))}
+/* ---------- NPC 對話與任務 ---------- */
+const CL=['1xx 資訊性回應','2xx 成功','3xx 重新導向','4xx 用戶端錯誤類別','5xx 伺服器端錯誤類別'];
+const SS=[['伺服器先回報「收到，請繼續」這類臨時資訊','1xx 是資訊性回應。'],['請求成功，並回傳了 HTML（例：200 OK）','2xx 表示成功。'],['舊網址已永久搬到新網址（例：301 Moved Permanently）','3xx 是重新導向。'],['找不到所要求的資源（例：404 Not Found）','4xx 表示請求有問題或資源不存在，不一定是使用者操作錯誤。'],['伺服器處理時遇到未預期的狀況（例：500 Internal Server Error）','5xx 表示伺服器端處理失敗，不代表整台伺服器一定完全停擺。']];
+const SW=(k,msg)=>()=>{const o=['syn','sa','ack'],p=S.f.bp|0;
+ if(S.f.bridge)return['機關已經亮起。'];
+ if(o[p]!=k)return['機關沒有反應。\n橋梁守衛：提示——客戶端先發 SYN；伺服器回 SYN-ACK；最後客戶端回 ACK。'+(p?'（已完成 '+p+' 步）':'')];
+ return[()=>{S.f.bp=p+1;pk={d:k=='sa'?-1:1,t:0,l:{syn:'SYN',sa:'SYN-ACK',ack:'ACK'}[k]};if(p==2)S.f.bridge=1;save();snd('ok')},msg].concat(p==2?[NT('三向交握的目的是建立 TCP 連線，並不是傳送完整的 HTTP 網頁內容。'),GET('TCP 連線印記'),'橋梁亮起，通往城堡的道路開放了！']:[])};
+const RS=i=>()=>{const r=S.f.r|0;
+ if(r>i)return i==6?['（再看一次城堡甦醒的畫面。）',()=>fin()]:['（已啟動）'+RN[i]+'：'+RT[i]];
+ if(r<i)return['裝置尚未就緒。請先啟動 '+(r+1)+' 號裝置：'+RN[r]];
+ return[()=>{S.f.r=i+1;snd(i==6?'win':'ok');save()},'裝置啟動：'+RN[i],NT(RT[i])].concat(i==6?[()=>fin()]:[])};
+const A={
+cry:()=>S.f.url?['水晶板上閃爍著 www.example.com。\n名字只是起點，下一步要知道城堡的 IP。']:['（你在魔法水晶板輸入 www.example.com。）','水晶板：已記錄網域名稱。但要找到伺服器，還需要它的 IP 位址。',set('url'),NT('網址是使用者存取網站的起點，但瀏覽器之後還要完成 DNS、TCP、HTTP 與渲染等工作。'),'【任務】把這件事告訴信使。'],
+gd:()=>!S.f.url?['王國守衛：站住！公主殿下想去哪裡？','王國守衛：光有 www.example.com 這個網域名稱，還不夠找到伺服器。必須先知道對應的 IP 位址。','王國守衛：先去調查廣場中央的網址水晶板吧。']:!S.f.start?['王國守衛：水晶板亮了？去找信使談談吧。']:['王國守衛：記憶圖書館在東邊。願魔法與你同行！'],
+ms:()=>!S.f.url?['信使：公主殿下，先看看水晶板吧。']:['信使：城堡在哪裡，連我也不知道。得先問記憶圖書館。','信使：公主請留步，這趟旅程由我代勞！東邊城門已為我開啟。',set('start'),'【任務】前往記憶圖書館，找出城堡的 IP 位址。'],
+bw:()=>S.f.cache?['瀏覽器管理員：快取還沒過期，上次的結果可以直接用。']:ask('瀏覽器管理員：我的小冊子記著「example.com → 93.184.216.34」（示範資料），而且還沒過期。請問，這時還需要把根、TLD、權威 DNS 全部再問一遍嗎？',['需要，每次都得從頭問起','不一定；快取有效時可以直接使用','快取永遠正確，永遠不用重查'],1,'瀏覽器管理員：答對了！快取有有效時間（TTL）；未過期就能直接用，過期或沒記錄才需要重新查詢。','瀏覽器管理員：再想想，快取能省下重複查詢，但記錄是有期限的。',[set('cache'),()=>{if(!S.f.ip){S.f.ip=1;save();tq.unshift(GET('IP 金色卡片：93.184.216.34（示範資料，不保證等於 example.com 目前實際使用的位址）。'))}},NT('DNS 快取可能存在瀏覽器、作業系統或遞迴解析器；是否命中取決於有效時間與解析器行為。')]),
+os:()=>['作業系統管理員：瀏覽器沒有記錄時，會來問我。我也有 DNS 快取，還保管著 hosts 檔案。再找不到，就交給遞迴解析器。'],
+rs:()=>S.f.ip?['遞迴解析器：你已經有 IP 了，快去城堡吧！']:['遞迴解析器：交給我吧！沒有快取時，我會代表你一層層去查：先問根 DNS，再問 .com 的 TLD，最後問權威 DNS。',set('ask'),'遞迴解析器：這次我們走完整路線。先去找根 DNS 長老。'],
+rt:()=>!S.f.ask?['根 DNS 長老：年輕人，先去問問遞迴解析器吧。']:!S.f.root?['根 DNS 長老：我不知道 example.com 的位址，但我知道 .com 由哪些 TLD 伺服器負責。去找 .com 守護者吧。',set('root')]:['根 DNS 長老：去找 .com 守護者。'],
+tl:()=>!S.f.root?['.com 守護者：先去問過根 DNS 長老再來。']:!S.f.tld?['.com 守護者：我負責 .com 底下的網域。example.com 的確切記錄，要問它的權威 DNS 管家。',set('tld')]:['.com 守護者：快去找權威 DNS 管家。'],
+au:()=>!S.f.tld?['權威 DNS 管家：還沒輪到你，先去問 .com 守護者。']:!S.f.ip?['權威 DNS 管家：example.com 的 A 記錄在這裡：93.184.216.34。（示範資料，不保證是目前實際位址）',set('ip'),GET('IP 金色卡片'),NT('根、TLD、權威 DNS 職責不同；遞迴解析器會代為查詢。若快取有效，就不必每次走完整流程。')]:['權威 DNS 管家：記錄你已經拿到了。'],
+bg:()=>!S.f.ip?['橋梁守衛：沒有城堡的位置，怎麼過橋？回圖書館取得 IP 吧。']:S.f.bridge?['橋梁守衛：橋亮了！TCP 連線已建立。注意，這只是連線，網頁內容還沒傳呢。']:['橋梁守衛：知道位置了。要建立 TCP 連線，需要三個步驟：客戶端先發出要求；伺服器回應並確認；客戶端再確認。','橋梁守衛：去按橋上的三座機關，順序很重要！按錯也沒關係，我會提示。'],
+syn:SW('syn','機關亮起：SYN！客戶端要求建立連線。'),sa:SW('sa','機關亮起：SYN-ACK！伺服器回應，並確認客戶端的序號。'),ack:SW('ack','機關亮起：ACK！客戶端確認伺服器的回應。'),
+gk:()=>!S.f.bridge?['城門守衛：連線尚未建立，我無法受理請求。']:S.f.req?['城門守衛：請求格式正確，管理員在等你。']:
+ ask('城門守衛：想「讀取」首頁資源，請求方法該用哪個？',['GET','DELETE','TRACE'],0,'城門守衛：GET 用來取得資源。','城門守衛：DELETE 是要求刪除資源，不是我們要的。',
+ ask('城門守衛：請求行的路徑要怎麼寫？（HTTP/1.1 origin-form）',['/','http://www.example.com/ 整個網址','example.com'],0,'城門守衛：沒錯，/ 代表根資源，網域由標頭提供。','城門守衛：這個範例的請求路徑只寫資源路徑，網域放在標頭。',
+ ask('城門守衛：HTTP/1.1 請求要帶哪個標頭，說明要找哪個主機？',['Host: example.com','Castle: open','Gold: yes'],0,'城門守衛：正確！','城門守衛：HTTP/1.1 需要 Host 標頭。',['請求內容：\nGET / HTTP/1.1\nHost: example.com',set('req'),NT('第一行是請求行（方法、路徑、版本），Host 標頭指出目標主機。城堡收到請求後會回覆狀態碼與資源。')]))),
+st:()=>{if(!S.f.req)return['城堡管理員：請先向城門守衛提交請求。'];if(S.f.status)return['城堡管理員：鑰匙你已經拿到了，去工坊吧！'];
+ let q=['城堡管理員：全部答對了！這是工坊的鑰匙。',set('status'),GET('HTML、CSS、JavaScript 三把工坊鑰匙'),NT('伺服器回應後，瀏覽器會取得 HTML，並依內容再請求 CSS、JavaScript 等資源。')];
+ for(let i=4;i>=0;i--)q=ask('城堡管理員：情境——'+SS[i][0]+'。屬於哪一類？',CL,i,'管理員：正確！'+SS[i][1],'管理員：不太對，再想想這個情境。',q,1);
+ return['城堡管理員：我要考考你狀態碼。'].concat(q)},
+ht:()=>{const f=S.f;if(!f.status)return['HTML 結構工匠：先去城堡取得鑰匙再來。'];if(f.html)return['HTML 結構工匠：DOM 樹完成了！看看預覽台旁的結構。'];
+ const L=[['h1','標題積木要用哪個標籤？',['<h1>','<button>','<p>'],'<h1> 代表標題。'],['p','段落積木要用哪個標籤？',['<p>','<h1>','<img>'],'<p> 代表段落。'],['btn','按鈕積木呢？',['<button>','<p>','<h1>'],'<button> 就是按鈕。']].filter(a=>!f[a[0]]);
+ let q=[set('html'),NT('HTML 描述文件結構；瀏覽器解析 HTML 後會建立 DOM，也就是文件的物件模型。'),'HTML 工匠：DOM 樹完成！'];
+ for(let i=L.length-1;i>=0;i--){const a=L[i];q=ask('HTML 工匠：'+a[1],a[2],0,'HTML 工匠：'+a[3],'HTML 工匠：放在這裡不太對，換個標籤試試。',[()=>{S.f[a[0]]=1;save();rebuild()}].concat(q))}
+ return['HTML 工匠：把積木放上預覽台，我會幫你確認標籤。'].concat(q)},
+cs:()=>{const f=S.f;if(!f.html)return['CSS 樣式工匠：還沒有結構可以上色，先找 HTML 工匠。'];
+ const pk=(arr,key)=>({o:arr.map(([n,v])=>[n,[()=>{S.f[key]=v;save();rebuild()},'CSS 工匠：預覽畫面改變了！']])});
+ const q=['CSS 工匠：選一種標題顏色。',pk([['古銅金',C.g],['暗磚紅',C.r],['復古薄荷綠',C.m]],'col'),'CSS 工匠：再選標題字級。',pk([['小',16],['中',24],['大',32]],'sz')];
+ return f.css?['CSS 工匠：想重新搭配也可以！'].concat(q):q.concat([set('css'),NT('CSS 描述元素外觀；瀏覽器解析 CSS 後建立 CSSOM，並與 DOM 一起用來計算樣式。')])},
+js:()=>{const f=S.f;if(!f.css)return['JS 魔法師：先讓畫面穿上樣式再來找我。'];if(f.js)return['JS 魔法師：看！JavaScript 可以操作 DOM、改變文字與樣式。'];if(f.jsOn)return['JS 魔法師：按鈕已啟動，請點擊預覽台上的「開啟城門」按鈕。'];
+ return['JS 魔法師：JavaScript 能監聽事件並修改 DOM。我讓按鈕被點擊時，改變標題文字。',{o:[['施放啟動咒文',[()=>{S.f.jsOn=1;save();rebuild()},'預覽台的按鈕亮了！請點擊它。']],['先不要',[]]]}]}};
+for(let i=0;i<7;i++)A['r'+i]=RS(i);
+/* ---------- 工坊預覽（真實 DOM 操作） ---------- */
+function rebuild(){const f=S.f;$('#pv').hidden=S.sc!=4;const b=$('#box');b.replaceChildren();const tr=['html','body'];
+ const mk=(t,x)=>{const e=document.createElement(t);e.textContent=x;b.append(e);return e};
+ if(f.h1){const h=mk('h1',f.jsd?'城堡開門了！':'小網公主的城堡');if(f.col)h.style.color=f.col;if(f.sz)h.style.fontSize=f.sz+'px';tr.push('h1')}
+ if(f.p){mk('p','歡迎來到瀏覽器王國。');tr.push('p')}
+ if(f.btn){const e=mk('button','開啟城門');tr.push('button');if(f.jsOn){e.style.outline='3px solid '+C.g;e.onclick=()=>{S.f.js=1;S.f.jsd=1;save();snd('ok');rebuild();if(M=='play')say([NT('JavaScript 可以操作 DOM：這次它改變了標題文字。'),'【任務完成】可以往東前往渲染工坊了！'])}}}
+ $('#tree').textContent='DOM：'+tr.join(' › ')+(f.col?'　CSS：h1 { color:'+f.col+'; font-size:'+(f.sz||'預設')+'px }':'')}
+/* ---------- 地圖與碰撞 ---------- */
+const NP=()=>SC[S.sc].np.filter(n=>!(n[2]=='ms'&&S.f.start));
+const npcAt=(x,y)=>NP().find(n=>n[0]==x&&n[1]==y);
+const DV={u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]};
+function near(){const D=DV[S.fc];return npcAt(S.x+D[0],S.y+D[1])||NP().find(n=>Math.abs(n[0]-S.x)+Math.abs(n[1]-S.y)==1)}
+function step(d){S.fc=d;const D=DV[d],X=S.x+D[0],Y=S.y+D[1],c=(SC[S.sc].m[Y]||'')[X];
+ if(!c||(c=='<'&&S.sc==0))return;
+ if(c=='>'&&!can()){held=[];say([LK[S.sc]]);return}
+ if(!'.=<>'.includes(c)||npcAt(X,Y))return;
+ mv={fx:S.x,fy:S.y,tx:X,ty:Y,t:0,d:RM?60:110}}
+function go(to,x,y){if(SC[to])tr={t:0,to,x,y,s:0}}
+function press(){if(!ov.hidden)return;if(M=='talk'){if(!$('#dc').childElementCount)nx()}else if(M=='play'&&!mv&&!tr){const n=near();if(n){snd('i');say(A[n[2]]())}}}
+function fin(){S.f.fin=1;save();tq=[];M='end';endT=0}
+function hint(){const n=near(),s=n?'按 E／互動鈕：與「'+n[3]+'」互動':'方向鍵／WASD 移動；靠近人物或物件按 E 互動。';if(s!=lastHint){lastHint=s;$('#dn').textContent='';$('#dt').textContent=s}}
+/* ---------- 更新 ---------- */
+function upd(dt){
+ if(M=='play'||M=='talk')S.t+=dt;
+ if(pk){pk.t+=dt/(RM?200:650);if(pk.t>=1)pk=null}
+ if(tr){tr.t+=dt/(RM?1:380);if(!tr.s&&tr.t>=.5){tr.s=1;S.sc=tr.to;S.x=tr.x;S.y=tr.y;mv=null;rebuild();save();snd('go')}if(tr.t>=1)tr=null;return}
+ if(M=='end'){endT+=dt;if(endT>2600&&ov.hidden)showEnd()}
+ if(M!='play')return;
+ if(mv){mv.t+=dt;if(mv.t>=mv.d){S.x=mv.tx;S.y=mv.ty;mv=null;const c=SC[S.sc].m[S.y][S.x];if(c=='>')go(S.sc+1,1,5);else if(c=='<')go(S.sc-1,13,5)}}
+ if(!mv&&!tr&&held.length)step(held[held.length-1]);
+ if(M=='play'&&!tr)hint()}
+/* ---------- 繪圖 ---------- */
+function tile(c,X,Y,th,t){const a=X*16,b=Y*16;R(a,b,16,16,th.fl);R(a+(X*5+Y*3)%12+1,b+(X*7+Y*5)%12+1,2,2,th.f2);
+ if(c=='#'){R(a,b,16,16,th.w);R(a,b+7,16,2,'rgba(0,0,0,.3)');R(a+(Y%2?4:10),b,2,7,'rgba(0,0,0,.3)');R(a+(Y%2?10:4),b+9,2,7,'rgba(0,0,0,.3)');R(a,b,16,1,'rgba(255,255,255,.15)')}
+ else if(c=='T'){R(a+6,b+9,4,7,'#5b4030');R(a+1,b+1,14,10,C.i);R(a+3,b,10,3,C.f);R(a+3,b+3,4,3,C.f)}
+ else if(c=='~'){R(a,b,16,16,'#24506b');const o=RM?0:Math.sin(t/400+X+Y)*3;R(a+4+o,b+4,6,1,C.m);R(a+8-o,b+11,5,1,'#4f86a6')}
+ else if(c=='B'){R(a,b,16,16,'#6b4a35');R(a+1,b+1,14,6,'#3d2b1f');R(a+1,b+9,14,6,'#3d2b1f');for(let i=0;i<5;i++){R(a+2+i*3,b+2,2,5,[C.r,C.g,C.m,C.p,C.r][(i+X+Y)%5]);R(a+2+i*3,b+10,2,5,[C.g,C.m,C.r,C.p,C.g][(i+X)%5])}}
+ else if(c=='C'){R(a+1,b+2,14,13,'#4a5560');R(a+3,b+4,10,5,C.g);R(a+4,b+11,3,3,C.r);R(a+9,b+11,3,3,C.m)}
+ else if(c=='='){for(let i=0;i<4;i++)R(a,b+i*4,16,3,i%2?'#8b6b4a':'#9c7a55')}
+ else if(c=='>'||c=='<'){const on=c=='<'||can(),p=RM?2:2+Math.sin(t/200)*2;R(a,b,16,16,on?C.g:C.r);R(a+3,b+3,10,10,C.n);R(a+8-p,b+8-p,p*2,p*2,on?C.m:'#c88')}}
+function spr(a,b,body,hat,fc,t,w){const bob=w||RM?0:Math.round(Math.sin(t/350+a)),k=w?Math.floor(t/110)%2:0;b+=bob;
+ R(a+3,b+14,10,2,'rgba(0,0,0,.3)');R(a+4,b+12+k,3,3,'#222');R(a+9,b+13-k,3,3,'#222');R(a+3,b+6,10,7,body);R(a+3,b+6,10,1,'rgba(255,255,255,.25)');R(a+4,b+1,8,6,'#e8c9a0');R(a+3,b,10,3,hat);
+ if(fc=='d'){R(a+5,b+4,2,2,'#222');R(a+9,b+4,2,2,'#222')}else if(fc=='l')R(a+4,b+4,2,2,'#222');else if(fc=='r')R(a+10,b+4,2,2,'#222')}
+function drawN(n,t){const [X,Y,id,nm,body,hat]=n,a=X*16,b=Y*16;
+ if(id=='cry'){const p=RM?0:Math.sin(t/300)*1.5;R(a+4,b+13,8,3,'#555');R(a+6,b+3+p,4,10,C.m);R(a+4,b+6+p,8,4,C.m);R(a+7,b+4+p,2,8,C.p);return}
+ if(!body){const f=S.f,bp=f.bp|0,done=id[0]=='r'?(f.r|0)>+id[1]:id=='ack'?!!f.bridge:id=='syn'?bp>0:bp>1;
+  R(a+2,b+4,12,11,'#4a5560');R(a+3,b+5,10,5,done?C.g:C.i);R(a+6,b+11,4,3,C.r);g.fillStyle=done?C.n:C.p;g.textAlign='center';g.font='bold 6px sans-serif';g.fillText(id[0]=='r'?String(+id[1]+1):nm.split(' ')[0],a+8,b+9.5);return}
+ spr(a,b,body,hat,'d',t,0)}
+function castle(){const r=S.f.r|0,e=M=='end'||r>6;R(80,16,80,32,C.n);
+ if(r<1){g.fillStyle=C.m;g.textAlign='center';g.font='8px sans-serif';g.fillText('（空白畫面）',120,34);return}
+ g.strokeStyle=C.m;g.lineWidth=1;
+ [[92,24,56,22],[86,16,12,30],[142,16,12,30]].forEach(([a,b,w,h])=>{if(r>=2)R(a,b,w,h,'#8d95a0');g.strokeRect(a+.5,b+.5,w-1,h-1)});
+ if(r>=3){R(116,34,8,12,'#3d2b1f');R(120,8,1,12,C.p);R(121,8,6,4,C.r)}
+ if(r>=4){R(84,12,16,5,C.r);R(140,12,16,5,C.r);R(90,21,60,4,C.r)}
+ if(r>=5)[[102,29],[112,29],[128,29],[91,22],[145,22]].forEach(([a,b])=>{R(a,b,5,6,e?C.g:r>=6?C.n:C.m)});
+ if(r>=6&&!e)[[102,29],[128,29]].forEach(([a,b])=>R(a+1,b+1,3,4,C.n));
+ if(e)for(let i=0;i<16;i++)R((i*37+5)%240,(i*23)%12+2,1,1,(Date.now()/300+i)%3<1?C.p:C.g)}
+function draw(t){const s=SC[S.sc];
+ for(let y=0;y<10;y++)for(let x=0;x<15;x++)tile(s.m[y][x],x,y,s.th,t);
+ if(S.sc==5)castle();
+ if(S.sc==2){g.font='8px sans-serif';g.textAlign='center';R(8,10,40,14,C.i);R(192,10,40,14,C.i);g.fillStyle=C.g;g.fillText('客戶端',28,20);g.fillText('伺服器',212,20);
+  if(pk){const x=pk.d>0?40+pk.t*160:200-pk.t*160;R(x-4,30,8,6,C.g);R(x-4-pk.d*6,31,4,4,C.m);g.fillStyle=C.p;g.fillText(pk.l,x,28)}}
+ NP().forEach(n=>drawN(n,t));
+ const k=mv?Math.min(1,mv.t/mv.d):0,px=(mv?mv.fx+(mv.tx-mv.fx)*k:S.x)*16,py=(mv?mv.fy+(mv.ty-mv.fy)*k:S.y)*16,st=S.f.start||S.sc>0;
+ spr(px,py,st?C.m:C.r,st?C.f:C.g,S.fc,t,!!mv);
+ if(M=='play'&&!mv){const n=near();if(n){g.fillStyle=C.g;g.font='bold 9px sans-serif';g.textAlign='center';g.fillText('!',n[0]*16+8,n[1]*16-1)}}
+ if(tr){g.fillStyle='rgba(0,0,0,'+(tr.t<.5?tr.t*2:2-tr.t*2)+')';g.fillRect(0,0,240,160)}
+ const k2=S.sc+goal();if(k2!==hudK){hudK=k2;$('#hc').textContent=s.n;$('#gl').textContent='目標：'+goal()}}
+function loop(ts){requestAnimationFrame(loop);const dt=Math.min(60,ts-last);last=ts;if(document.hidden||!S)return;upd(dt);draw(ts)}
+/* ---------- 選單與面板 ---------- */
+function show(nodes){pn.replaceChildren(...nodes);ov.hidden=false}
+function sndBtn(sv){const b=B('',()=>{S.snd=S.snd?0:1;lab();if(sv)save()}),lab=()=>b.textContent='音效：'+(S.snd?'開':'關');lab();return b}
+function title(){M='title';held=[];const has=!!load();show([E('h2','小封包的奇幻旅程'),E('div','The Journey of a Tiny Packet',{className:'sub'}),E('p','瀏覽器王國的小網公主在水晶板輸入了 www.example.com。請扮演信使，穿越 DNS 迷宮、TCP 橋梁與 HTTP 城堡，在像素工坊裡完成網頁，親眼看見城堡甦醒。'),E('p','操作：WASD／方向鍵移動；E、Enter、空白鍵互動或繼續；Esc 暫停；手機使用畫面下方按鈕。進度會自動儲存在瀏覽器。'),B(has?'繼續旅程':'開始遊戲',()=>start(has)),has?B('重新開始',()=>{if(confirm('確定要清除進度重新開始？'))start(false)}):'',sndBtn(has)])}
+function start(has){const l=has&&load();S=l||fresh(S&&S.snd);if(!l)save();ov.hidden=true;tq=[];mv=null;pk=null;tr=null;held=[];M='play';lastHint='';$('#dc').replaceChildren();$('#dh').hidden=true;rebuild();snd('go');if(!l)say(['小網公主：我要去那座神秘的城堡！','（探索廣場吧。靠近人物或物件，按 E 或「互動」鈕對話。）'])}
+function openPause(){if(M!='play')return;M='pause';held=[];save();show([E('h3','暫停：任務日誌'),E('p','章節：'+SC[S.sc].n),E('p','目前任務：'+goal()),E('p','已完成：'+(DN.filter(a=>S.f[a[0]]).map(a=>a[1]).join('、')||'尚無')),E('p','關鍵道具：'+itemsText()),B('繼續遊戲',resume),sndBtn(1),B('重新開始',()=>{if(confirm('確定要清除進度重新開始？'))start(false)}),B('返回主選單',title)])}
+function resume(){ov.hidden=true;M='play'}
+const CH=['序章：網址水晶板','第一章：記憶圖書館與 DNS 迷宮','第二章：TCP 三向交握之橋','第三章：HTTP 請求與狀態碼城堡','第四章：HTML 與 CSS 的像素工坊','第五章：渲染引擎與最終城堡'];
+function showEnd(){M='end';const f=S.f,ach=[['DNS 領航員',f.ip],['握手大師',f.bridge],['請求打造師',f.req],['狀態碼判官',f.status],['DOM／CSSOM 工匠',f.js],['渲染大師',f.fin],['快取達人（支線）',f.cache]].filter(a=>a[1]).map(a=>a[0]);
+ show([E('h2','城堡甦醒！'),E('p','窗戶逐一亮起，星光灑滿天空，王國恢復運作。'),E('p','章節完成紀錄：\n'+CH.map(c=>'✓ '+c).join('\n'),{className:'pl'}),E('p','收集道具：'+itemsText()),E('p','遊玩時間：'+fmt(S.t)+'　探索進度：'+prog()+'%'),E('p','學習成就：'+ach.join('、')),E('p','回顧：輸入網址 → DNS 查詢（快取有效時可能直接命中）→ TCP 三向交握 → HTTP 請求與回應 → 解析 HTML／CSS 建立 DOM／CSSOM，必要時執行 JavaScript → 樣式計算、Layout、Paint → 畫面呈現。'),S.qz?E('p','測驗最佳成績：'+S.qz.best+' 分'):'',B('挑戰知識測驗',quiz),B('重新冒險',()=>start(false)),B('返回主選單',title)])}
+const QZ=[
+{q:'DNS 的主要功能是什麼？',o:['把網域名稱解析成 IP 位址等資訊','加密網頁內容','設計網頁樣式'],a:0,e:'DNS 負責將網域名稱對應到 IP 位址等記錄。'},
+{q:'DNS 快取在有效期限內命中時，通常會怎樣？',o:['仍必須重新問根 DNS','可直接使用已保存的結果','網站會變成 404'],a:1,e:'快取有有效時間；未過期且命中時可省下重複查詢，實際行為依快取位置與解析器而定。'},
+{q:'TCP 三向交握的順序是？',o:['SYN → SYN-ACK → ACK','ACK → SYN → SYN-ACK','SYN-ACK → SYN → ACK'],a:0,e:'客戶端送 SYN，伺服器回 SYN-ACK，客戶端再送 ACK。'},
+{q:'TCP 三向交握的目的是？',o:['建立 TCP 連線','傳送完整的 HTML 網頁','把網域轉成 IP'],a:0,e:'三向交握只建立連線，網頁內容是之後由 HTTP 傳送。'},
+{q:'HTTP/1.1 請求中的 Host 標頭用來？',o:['指出要請求的主機名稱','設定文字顏色','表示 TCP 序號'],a:0,e:'HTTP/1.1 以 Host 標頭告知伺服器目標主機。'},
+{q:'404 Not Found 屬於哪一類狀態碼？',o:['4xx 用戶端錯誤類別','2xx 成功','5xx 伺服器端錯誤類別'],a:0,e:'404 表示找不到資源，屬於 4xx；不一定是使用者操作錯誤。'},
+{q:'DOM 與 CSSOM 分別來自哪裡？',o:['HTML 解析、CSS 解析','CSS 解析、HTML 解析','兩者都只來自 JavaScript'],a:0,e:'HTML 解析後形成 DOM，CSS 解析後形成 CSSOM。'},
+{q:'Layout 階段主要在做什麼？',o:['計算元素的位置與大小','建立 TCP 連線','查詢 DNS'],a:0,e:'Layout 計算元素的位置與尺寸；Paint 才是把視覺內容繪製出來。'}];
+function quiz(){M='quiz';let i=0,sc=0,wr=[];const qs=QZ.slice().sort(()=>Math.random()-.5);nextQ();
+ function nextQ(){if(i>=qs.length)return res();const q=qs[i],o=q.o.map((t,k)=>({t,ok:k==q.a})).sort(()=>Math.random()-.5),fb=E('p',''),nb=B(i==qs.length-1?'看結果':'下一題',()=>{i++;nextQ()});nb.hidden=true;
+  const bs=o.map(x=>B(x.t,()=>{bs.forEach(b=>b.disabled=true);if(x.ok){sc++;fb.textContent='答對了！'+q.e}else{wr.push(q);fb.textContent='答錯了。正確答案：'+q.o[q.a]+'。'+q.e}snd(x.ok?'ok':'i');nb.hidden=false}));
+  show([E('h3','知識測驗 '+(i+1)+'／'+qs.length),E('p',q.q),...bs.map(b=>{const d=E('div');d.append(b);return d}),fb,nb])}
+ function res(){S.qz={best:Math.max(sc,S.qz?S.qz.best:0),last:sc};save();show([E('h2','測驗結果：'+sc+'／'+qs.length+' 分'),...(wr.length?[E('p','答錯題目與解析：'),...wr.map(q=>E('p','‧'+q.q+'\n答案：'+q.o[q.a]+'\n'+q.e,{className:'pl'}))]:[E('p','全部答對！你已能用自己的話說出輸入網址後的完整流程。')]),B('再挑戰一次',quiz),B('回到結局',showEnd)])}}
+/* ---------- 輸入 ---------- */
+const hold=(d,on)=>{held=held.filter(k=>k!=d);if(on)held.push(d)};
+const KD={ArrowUp:'u',w:'u',W:'u',ArrowDown:'d',s:'d',S:'d',ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r'};
+addEventListener('keydown',e=>{const k=e.key;
+ if(KD[k]){if(M=='play'||M=='talk'){e.preventDefault();if(!e.repeat)hold(KD[k],1)}return}
+ if([' ','Enter','e','E'].includes(k)){if(M=='play'||M=='talk'){e.preventDefault();if(!e.repeat)press()}return}
+ if(k=='Escape'){if(M=='play')openPause();else if(M=='pause')resume();return}
+ if(M=='talk'&&/^[1-4]$/.test(k)){const b=$('#dc').children[k-1];if(b)b.click()}});
+addEventListener('keyup',e=>{if(KD[e.key])hold(KD[e.key],0)});
+addEventListener('blur',()=>{held=[]});
+addEventListener('pagehide',()=>{if(S&&M!='title')save()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){held=[];if(M=='play')openPause()}});
+document.addEventListener('click',e=>{if(e.target.tagName=='BUTTON'&&e.target.closest('#dlg,#ov'))e.target.blur()});
+document.addEventListener('contextmenu',e=>{if(e.target.closest('#ctl,#cv'))e.preventDefault()});
+document.querySelectorAll('#dp button').forEach(b=>{const d=b.dataset.d;
+ b.addEventListener('pointerdown',e=>{e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch(x){}hold(d,1)});
+ ['pointerup','pointercancel','lostpointercapture'].forEach(v=>b.addEventListener(v,()=>hold(d,0)))});
+$('#ba').addEventListener('pointerdown',e=>{e.preventDefault();press()});
+$('#bm').addEventListener('pointerdown',e=>{e.preventDefault();if(M=='play')openPause();else if(M=='pause')resume()});
+$('#dlg').addEventListener('click',()=>{if(M=='talk'&&!$('#dc').childElementCount)nx()});
+/* ---------- 啟動 ---------- */
+S=load()||fresh();title();requestAnimationFrame(loop);
+</script></body></html>
